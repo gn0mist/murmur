@@ -80,7 +80,7 @@ from winrt.windows.media.control import (
 )
 from winrt.windows.storage.streams import DataReader
 
-__version__ = "0.1.0-alpha"
+__version__ = "0.2.0-beta"
 APP_NAME = "Murmur Miniplayer"
 
 
