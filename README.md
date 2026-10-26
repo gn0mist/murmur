@@ -6,11 +6,15 @@ A small always-on-top miniplayer for Spotify on Windows 11, with synced karaoke-
 
 It reads what Spotify is playing from the Windows media session, so there's no Spotify login or API key.
 
+### [⬇ Download Murmur.exe](https://github.com/gn0mist/murmur/releases/download/v0.2.0-beta/Murmur.exe)
+
+Free · Windows 10/11 · v0.2.0-beta · [all releases](https://github.com/gn0mist/murmur/releases)
+
 **Status:** public beta (v0.2.0). It works day to day, but expect a few rough edges.
 
 ## Download
 
-Get `Murmur.exe` from the [latest release](https://github.com/gn0mist/murmur/releases)
+[Download Murmur.exe](https://github.com/gn0mist/murmur/releases/download/v0.2.0-beta/Murmur.exe)
 and run it. No install and no Python needed. Just have the Spotify desktop app open.
 
 Windows may show "Windows protected your PC" the first time, because the app
