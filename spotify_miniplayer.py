@@ -10,7 +10,7 @@ Run:
   python spotify_miniplayer.py        (or rename to .pyw to hide the console)
 
 Hover the player for the controls (back / play / next and a volume slider)
-and a small X (top right) to close it. Tick Lyrics on the player to show or
+and a small X (top right) to close it. Click the microphone icon to show or
 hide the lyrics strip. Scroll the mouse wheel over the player to change
 volume. Double-click the player to switch between full and nano mode.
 Right-click for settings: opacity, nano mode, behavior.
@@ -45,7 +45,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QApplication, QWidget, QLabel, QPushButton, QHBoxLayout, QVBoxLayout, QMenu,
-    QSlider, QWidgetAction, QToolTip, QCheckBox,
+    QSlider, QWidgetAction, QToolTip, QAbstractButton,
 )
 
 from winrt.windows.media.control import (
@@ -426,6 +426,73 @@ class ProgressBar(QWidget):
             e.accept()
 
 
+class LyricsButton(QAbstractButton):
+    """Microphone icon that toggles the lyrics strip. Glows in the accent
+    color when on, dim when off."""
+
+    GLOW_LAYERS = ((6.0, 30), (3.5, 60))  # (pen width, alpha)
+    OFF = QColor(255, 255, 255, 80)
+
+    def __init__(self):
+        super().__init__()
+        self.setCheckable(True)
+        self.setFixedSize(18, 18)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setToolTip("Lyrics")
+        self.accent = QColor(255, 255, 255)
+        self._hover = False
+
+    def enterEvent(self, e):
+        self._hover = True
+        self.update()
+
+    def leaveEvent(self, e):
+        self._hover = False
+        self.update()
+
+    def _icon_path(self):
+        W, H = self.width(), self.height()
+        cx = W / 2
+        path = QPainterPath()
+        # capsule head
+        path.addRoundedRect(QRectF(cx - 3, H * 0.12, 6, H * 0.48), 3, 3)
+        # cradle around the head
+        cradle = QPainterPath()
+        r = QRectF(cx - 5.5, H * 0.22, 11, H * 0.52)
+        cradle.arcMoveTo(r, 180)
+        cradle.arcTo(r, 180, 180)
+        # stand and base
+        cradle.moveTo(cx, H * 0.74)
+        cradle.lineTo(cx, H * 0.88)
+        cradle.moveTo(cx - 3.5, H * 0.88)
+        cradle.lineTo(cx + 3.5, H * 0.88)
+        return path, cradle
+
+    def paintEvent(self, _):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        head, cradle = self._icon_path()
+        on = self.isChecked()
+
+        if on:
+            for width, a in self.GLOW_LAYERS:
+                c = QColor(self.accent)
+                c.setAlpha(a)
+                pen = QPen(c, width)
+                pen.setJoinStyle(Qt.RoundJoin)
+                pen.setCapStyle(Qt.RoundCap)
+                p.strokePath(head, pen)
+                p.strokePath(cradle, pen)
+            color = QColor(self.accent)
+        else:
+            color = QColor(255, 255, 255, 150) if self._hover else self.OFF
+
+        p.fillPath(head, color)
+        pen = QPen(color, 1.4)
+        pen.setCapStyle(Qt.RoundCap)
+        p.strokePath(cradle, pen)
+
+
 class LyricsStrip(QWidget):
     """One lyric line at a time. Each word fills with the accent color and
     glows as it's sung. Long lines scroll horizontally to follow the active
@@ -626,6 +693,8 @@ class LyricsStrip(QWidget):
 class MiniPlayer(QWidget):
     BASE_H = 116
     LYRICS_H = 34
+    GLOW_PAD = 1  # transparent margin around the panel for the border glow
+    BORDER_GLOW = ((2.0, 90),)  # (pen width, alpha)
     volume_read = Signal(object)  # Spotify's volume (0..1) or None
 
     def __init__(self):
@@ -693,14 +762,9 @@ class MiniPlayer(QWidget):
         time_row.addWidget(self.t_left)
         time_row.addWidget(self.bar, 1)
         time_row.addWidget(self.t_right)
-        self.lyrics_chk = QCheckBox("Lyrics")
-        self.lyrics_chk.setCursor(Qt.PointingHandCursor)
-        self.lyrics_chk.setFont(QFont("Segoe UI", 8))
-        self.lyrics_chk.setStyleSheet(
-            "QCheckBox { color: rgba(255,255,255,170); spacing: 4px; background: transparent; }"
-            "QCheckBox::indicator { width: 12px; height: 12px; }")
-        self.lyrics_chk.toggled.connect(self._lyrics_toggled)
-        time_row.addWidget(self.lyrics_chk)
+        self.lyrics_btn = LyricsButton()
+        self.lyrics_btn.toggled.connect(self._lyrics_toggled)
+        time_row.addWidget(self.lyrics_btn)
 
         # full-mode controls row
         self.play_btns = []
@@ -814,7 +878,7 @@ class MiniPlayer(QWidget):
 
     def resizeEvent(self, _):
         if hasattr(self, "close_btn"):
-            self.close_btn.move(self.width() - 24, 6)
+            self.close_btn.move(self.width() - 24 - self.GLOW_PAD, 6 + self.GLOW_PAD)
 
     # ---- applying settings ----
     def _apply_all(self):
@@ -822,9 +886,9 @@ class MiniPlayer(QWidget):
         nano = bool(c["nano"])
         self.strip.offset = float(c["lyrics_offset"])
         self.show_lyrics = bool(c["show_lyrics"])
-        self.lyrics_chk.blockSignals(True)
-        self.lyrics_chk.setChecked(self.show_lyrics)
-        self.lyrics_chk.blockSignals(False)
+        self.lyrics_btn.blockSignals(True)
+        self.lyrics_btn.setChecked(self.show_lyrics)
+        self.lyrics_btn.blockSignals(False)
 
         art = ART_NANO if nano else ART_FULL
         self.art.setFixedSize(art, art)
@@ -832,13 +896,14 @@ class MiniPlayer(QWidget):
         self.vbox.setGeometry(art - 26, 18, 22, max(20, art - 34 - 18 - 4))
         self.right_w.setVisible(not nano)
         self.strip.setVisible(self.show_lyrics and not nano)
+        g = self.GLOW_PAD
         if nano:
-            self.root.setContentsMargins(12, 12, 12, 12)
-            self.setFixedSize(NANO_SIZE, NANO_SIZE)
+            self.root.setContentsMargins(12 + g, 12 + g, 12 + g, 12 + g)
+            self.setFixedSize(NANO_SIZE + 2 * g, NANO_SIZE + 2 * g)
         else:
-            self.root.setContentsMargins(12, 12, 14, 8)
+            self.root.setContentsMargins(12 + g, 12 + g, 14 + g, 8 + g)
             h = self.BASE_H + (self.LYRICS_H if self.show_lyrics else 0)
-            self.setFixedSize(FULL_W, h)
+            self.setFixedSize(FULL_W + 2 * g, h + 2 * g)
         self._render_art()
         self._refresh_texts()
         self._refresh_colors()
@@ -886,6 +951,8 @@ class MiniPlayer(QWidget):
             "QSlider::sub-page:vertical:disabled { background: rgba(255,255,255,50); }")
         self.vol_slider_v.setStyleSheet(self.vol_slider.styleSheet())
         self.strip.accent = accent
+        self.lyrics_btn.accent = accent
+        self.lyrics_btn.update()
         self.strip.bg = QColor(self.bg)
         self.strip.bg_alpha = self._bg_alpha()
         self.strip.update()
@@ -905,22 +972,38 @@ class MiniPlayer(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.Antialiasing)
         path = QPainterPath()
-        path.addRoundedRect(QRectF(self.rect()).adjusted(1, 1, -1, -1), 16, 16)
+        g = self.GLOW_PAD
+        panel = QRectF(self.rect()).adjusted(g, g, -g, -g)
+        path.addRoundedRect(panel, 16, 16)
         c = QColor(self.bg)
         c.setAlpha(self._bg_alpha())
         p.fillPath(path, c)
 
         # purple -> orange gradient outline; thin, and it fades with opacity
         alpha = self._bg_alpha()
-        c_a = QColor(BORDER_PURPLE)
-        c_a.setAlpha(alpha)
-        c_b = QColor(BORDER_ORANGE)
-        c_b.setAlpha(alpha)
-        grad = QLinearGradient(0, 0, self.width(), self.height())
-        grad.setColorAt(0.0, c_a)
-        grad.setColorAt(1.0, c_b)
-        pen = QPen(QBrush(grad), 0.8)
-        p.setPen(pen)
+
+        def border_grad(a):
+            c_a = QColor(BORDER_PURPLE)
+            c_a.setAlpha(a)
+            c_b = QColor(BORDER_ORANGE)
+            c_b.setAlpha(a)
+            grad = QLinearGradient(panel.topLeft(), panel.bottomRight())
+            grad.setColorAt(0.0, c_a)
+            grad.setColorAt(1.0, c_b)
+            return QBrush(grad)
+
+        # soft outer glow: wide, faint strokes kept outside the panel
+        outside = QPainterPath()
+        outside.addRect(QRectF(self.rect()))
+        outside = outside.subtracted(path)
+        p.save()
+        p.setClipPath(outside)
+        for width, a in self.BORDER_GLOW:
+            p.setPen(QPen(border_grad(int(a * alpha / 255)), width))
+            p.drawPath(path)
+        p.restore()
+
+        p.setPen(QPen(border_grad(alpha), 0.8))
         p.drawPath(path)
 
     # ---- hover ----
@@ -956,7 +1039,8 @@ class MiniPlayer(QWidget):
             self.strip.flash(text, ms)
         else:
             QToolTip.showText(
-                self.mapToGlobal(QPoint(8, self.height() + 4)), text, self,
+                self.mapToGlobal(QPoint(8 + self.GLOW_PAD, self.height() + 4 - self.GLOW_PAD)),
+                text, self,
                 QRect(), ms)
 
     # ---- volume (Spotify's slider in the Windows mixer) ----
@@ -1113,7 +1197,8 @@ class MiniPlayer(QWidget):
             return {}
 
     def _save_cfg(self):
-        self.cfg.update({"x": self.x(), "y": self.y()})
+        # saved position is the panel's corner, not the glow margin's
+        self.cfg.update({"x": self.x() + self.GLOW_PAD, "y": self.y() + self.GLOW_PAD})
         try:
             CONFIG_PATH.write_text(json.dumps(self.cfg, indent=2))
         except Exception:
@@ -1121,10 +1206,11 @@ class MiniPlayer(QWidget):
 
     def _restore_position(self):
         try:
-            self.move(int(self.cfg["x"]), int(self.cfg["y"]))
+            self.move(int(self.cfg["x"]) - self.GLOW_PAD, int(self.cfg["y"]) - self.GLOW_PAD)
         except Exception:
             screen = QApplication.primaryScreen().availableGeometry()
-            self.move(screen.right() - self.width() - 24, screen.bottom() - self.height() - 24)
+            self.move(screen.right() - self.width() - 24 + self.GLOW_PAD,
+                      screen.bottom() - self.height() - 24 + self.GLOW_PAD)
 
     # ---- state updates ----
     def on_update(self, s):
