@@ -5,6 +5,7 @@ venv/
 build/
 dist/
 *.spec
+!murmur.spec
 .vscode/
 .idea/
 .cursor/

@@ -52,6 +52,7 @@ from PySide6.QtGui import (
     QImage,
     QFont,
     QFontMetricsF,
+    QIcon,
     QLinearGradient,
     QPen,
     QBrush,
@@ -88,6 +89,9 @@ CONFIG_PATH = Path.home() / ".murmur.json"
 LYRICS_CACHE = Path.home() / ".murmur_lyrics"
 LEGACY_CONFIG = Path.home() / ".spotify_miniplayer.json"
 LEGACY_LYRICS = Path.home() / ".spotify_miniplayer_lyrics"
+# The .exe unpacks bundled files to sys._MEIPASS; from source, use this folder.
+APP_DIR = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+ICON_PATH = APP_DIR / "assets" / "murmur.ico"
 LRCLIB = "https://lrclib.net/api"
 DEFAULT_BG = QColor(24, 24, 28)
 
@@ -1743,6 +1747,7 @@ def main():
     _migrate_legacy_files()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
+    app.setWindowIcon(QIcon(str(ICON_PATH)))
     w = MiniPlayer()
     w.show()
     sys.exit(app.exec())
