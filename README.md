@@ -1,4 +1,4 @@
-# Spotify Miniplayer
+# Murmur Miniplayer
 
 A small always-on-top miniplayer for Spotify on Windows 11, with synced karaoke-style lyrics.
 
@@ -19,7 +19,7 @@ It reads what Spotify is playing from the Windows media session, so there's no S
 ## Requirements
 
 - Windows 10/11
-- Python 3.9+
+- Python 3.10+
 - The Spotify desktop app
 
 ## Install
@@ -31,12 +31,23 @@ python -m pip install -r requirements.txt
 ## Run
 
 ```
-python spotify_miniplayer.py
+python murmur.py
 ```
 
 Rename the file to `.pyw` to run it without a console window.
 
 ## Files it creates
 
-- `~/.spotify_miniplayer.json`: settings and window position
-- `~/.spotify_miniplayer_lyrics/`: lyrics cache
+- `~/.murmur.json`: settings and window position
+- `~/.murmur_lyrics/`: lyrics cache
+
+Settings and the lyrics cache from the earlier `spotify_miniplayer` name are
+carried over automatically on first run.
+
+## License
+
+MIT. See [LICENSE](LICENSE).
+
+---
+
+Gnomist · Praxis 1
