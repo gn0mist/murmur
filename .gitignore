@@ -8,3 +8,7 @@ dist/
 .vscode/
 .idea/
 .cursor/
+
+# Local notes (not published)
+CLAUDE.md
+MURMUR_STATUS.md
