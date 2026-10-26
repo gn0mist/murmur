@@ -1,3 +1,5 @@
+![Murmur: a tiny miniplayer for Spotify on Windows 11](assets/banner.png)
+
 # Murmur Miniplayer
 
 A small always-on-top miniplayer for Spotify on Windows 11, with synced karaoke-style lyrics.
