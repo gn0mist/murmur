@@ -19,7 +19,7 @@ isn't code-signed. Click **More info → Run anyway**.
 ## Features
 
 - Album art, title, artist, progress bar (click to seek)
-- Back / play / next and a volume slider on hover
+- Back / play / next and a volume slider (on hover in nano mode)
 - Synced lyrics from [LRCLIB](https://lrclib.net), highlighted word by word
 - Colors that follow the album art
 - Nano mode (double-click to toggle)

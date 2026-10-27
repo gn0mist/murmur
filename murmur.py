@@ -11,8 +11,8 @@ Install:
 Run:
   python murmur.py        (or rename to .pyw to hide the console)
 
-Hover the player for the controls (back / play / next and a volume slider)
-and a small X (top right) to close it. Click the microphone icon to show or
+Back / play / next and a volume slider sit under the track info (in nano
+mode they show on hover). Hover for a small X (top right) to close it. Click the microphone icon to show or
 hide the lyrics strip. Scroll the mouse wheel over the player to change
 volume. Double-click the player to switch between full and nano mode.
 Right-click for settings: opacity, nano mode, behavior.
@@ -109,7 +109,6 @@ DEFAULTS = {
     "nano": False,
     "always_on_top": True,
     "locked": False,
-    "controls_always": False,
 }
 
 # Shown in the lyrics strip, keyed by the kind of failure.
@@ -1146,16 +1145,18 @@ class MiniPlayer(QWidget):
         self._update_hover(self.underMouse())
 
     def _update_hover(self, hovering: bool):
-        """Show or hide the hover-only controls.
+        """Show or hide the controls for the current mode.
+
+        Full mode always shows its controls; nano keeps the art clear until
+        hovered.
 
         Args:
             hovering: Whether the mouse is over the player.
         """
-        show = hovering or self.cfg["controls_always"]
         nano = self.cfg["nano"]
-        self.controls.setVisible(show and not nano)
-        self.cbar.setVisible(show and nano)
-        self.vbox.setVisible(show and nano)
+        self.controls.setVisible(not nano)
+        self.cbar.setVisible(hovering and nano)
+        self.vbox.setVisible(hovering and nano)
         self.close_btn.setVisible(hovering)
         self.close_btn.raise_()
 
@@ -1188,13 +1189,13 @@ class MiniPlayer(QWidget):
             " { background: rgba(255,255,255,50); }"
             "QSlider::groove:vertical { width: 4px; border-radius: 2px;"
             " background: rgba(255,255,255,50); }"
-            f"QSlider::sub-page:vertical {{ background: {accent.name()};"
+            f"QSlider::add-page:vertical {{ background: {accent.name()};"
             " border-radius: 2px; }"
             "QSlider::handle:vertical { background: white; width: 10px;"
             " height: 10px; margin: 0 -3px; border-radius: 5px; }"
             "QSlider::handle:vertical:disabled"
             " { background: rgba(255,255,255,90); }"
-            "QSlider::sub-page:vertical:disabled"
+            "QSlider::add-page:vertical:disabled"
             " { background: rgba(255,255,255,50); }"
         )
         self.vol_slider_v.setStyleSheet(self.vol_slider.styleSheet())
@@ -1526,7 +1527,6 @@ class MiniPlayer(QWidget):
         top.setChecked(bool(self.cfg["always_on_top"]))
         top.triggered.connect(lambda checked=False: self.on_always_on_top(checked))
         self._toggle_item(bm, "Lock position", "locked")
-        self._toggle_item(bm, "Always show controls", "controls_always")
 
         m.addSeparator()
         m.addAction("Quit").triggered.connect(self.on_quit)
@@ -1550,7 +1550,8 @@ class MiniPlayer(QWidget):
                 return {}
             if "nano" not in data and "compact" in data:  # renamed setting
                 data["nano"] = data.pop("compact")
-            data.pop("lyrics_offset", None)  # removed setting
+            data.pop("lyrics_offset", None)  # removed settings
+            data.pop("controls_always", None)
             return data
         except Exception:
             return {}
