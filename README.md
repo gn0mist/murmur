@@ -1,4 +1,4 @@
-![Murmur: a tiny miniplayer for Spotify on Windows 11](assets/banner.png)
+![Murmur: a miniplayer for Spotify on Windows 11](assets/banner.png)
 
 # Murmur Miniplayer
 
@@ -63,6 +63,8 @@ carried over automatically on first run.
 ## License
 
 MIT. See [LICENSE](LICENSE).
+
+Murmur is not affiliated with or endorsed by Spotify.
 
 ---
 
