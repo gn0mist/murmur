@@ -181,9 +181,6 @@ class MiniPlayer(QWidget):
         self.cbar = QWidget(self.art)
         self.cbar.setObjectName("cbar")
         self.cbar.setAttribute(Qt.WA_StyledBackground, True)
-        self.cbar.setStyleSheet(
-            "QWidget#cbar { background: rgba(0,0,0,165); border-radius: 10px; }"
-        )
         crow2 = QHBoxLayout(self.cbar)
         crow2.setContentsMargins(4, 4, 4, 4)
         crow2.setSpacing(4)
@@ -196,9 +193,6 @@ class MiniPlayer(QWidget):
         self.vbox = QWidget(self.art)
         self.vbox.setObjectName("vbox")
         self.vbox.setAttribute(Qt.WA_StyledBackground, True)
-        self.vbox.setStyleSheet(
-            "QWidget#vbox { background: rgba(0,0,0,165); border-radius: 10px; }"
-        )
         vlay = QVBoxLayout(self.vbox)
         vlay.setContentsMargins(4, 8, 4, 8)
         self.vol_slider_v = QSlider(Qt.Vertical)
@@ -360,6 +354,13 @@ class MiniPlayer(QWidget):
             " { background: rgba(255,255,255,50); }"
         )
         self.vol_slider_v.setStyleSheet(self.vol_slider.styleSheet())
+        # nano overlays take the album tint, dimmed enough to read over the art
+        b = self.bg
+        tint = f"background: rgba({b.red()},{b.green()},{b.blue()},190);"
+        for w in (self.cbar, self.vbox):
+            w.setStyleSheet(
+                f"QWidget#{w.objectName()} {{ {tint} border-radius: 10px; }}"
+            )
         self.strip.accent = accent
         self.lyrics_btn.accent = accent
         self.lyrics_btn.update()
