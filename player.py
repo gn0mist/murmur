@@ -465,6 +465,16 @@ class MiniPlayer(QWidget):
         p.setPen(QPen(border_grad(alpha), 0.8))
         p.drawPath(path)
 
+    def event(self, e: QEvent) -> bool:
+        """Redraw the art when the window lands on a differently scaled screen.
+
+        Args:
+            e: Any event; only the scale change is handled here.
+        """
+        if e.type() == QEvent.DevicePixelRatioChange:
+            self._render_art()
+        return super().event(e)
+
     # ── Mouse ────────────────────────
     def enterEvent(self, _: QEnterEvent):
         """Show the controls and refresh the volume slider."""
@@ -907,7 +917,10 @@ class MiniPlayer(QWidget):
             )
             return
         self.art.setStyleSheet("")
-        rounded = QPixmap(size, size)
+        # draw at the screen's real pixel size so art stays sharp above 100%
+        dpr = self.art.devicePixelRatioF()
+        rounded = QPixmap(round(size * dpr), round(size * dpr))
+        rounded.setDevicePixelRatio(dpr)
         rounded.fill(Qt.transparent)
         painter = QPainter(rounded)
         painter.setRenderHint(QPainter.Antialiasing)
@@ -918,27 +931,30 @@ class MiniPlayer(QWidget):
         if fading:
             # a new cover hides the old one; the see-through placeholder doesn't
             painter.setOpacity(1.0 if img is not None else 1.0 - self._fade_t)
-            self._draw_art(painter, self._art_prev, size)
+            self._draw_art(painter, self._art_prev, size, dpr)
             painter.setOpacity(self._fade_t)
-        self._draw_art(painter, img, size)
+        self._draw_art(painter, img, size, dpr)
         painter.end()
         self.art.setPixmap(rounded)
 
     @staticmethod
-    def _draw_art(painter: QPainter, img: QImage | None, size: int):
+    def _draw_art(painter: QPainter, img: QImage | None, size: int, dpr: float):
         """Paint one cover, or the empty placeholder, over the art square.
 
         Args:
             painter: Painter on the art pixmap, already clipped.
             img: Album art, or None for the placeholder.
-            size: Side of the square.
+            size: Side of the square, in logical pixels.
+            dpr: Device pixels per logical pixel.
         """
         if img is None:
             painter.fillRect(QRectF(0, 0, size, size), QColor(255, 255, 255, 20))
             return
+        px = round(size * dpr)
         pm = QPixmap.fromImage(img).scaled(
-            size, size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            px, px, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
         )
+        pm.setDevicePixelRatio(dpr)
         painter.drawPixmap(0, 0, pm)
 
     def _current_pos(self) -> float:
