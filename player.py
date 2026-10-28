@@ -97,6 +97,7 @@ class MiniPlayer(QWidget):
         self._art_hs = None  # (hue, saturation) of the current album art
         self._art_img = None
         self._art_prev = None  # art fading out during a track change
+        self._art_scaled = {}  # (image key, px) -> scaled cover pixmap
         self._fade_t = 1.0  # track-change fade progress, 0..1
         self._fade_from = (QColor(self.bg), QColor(self._accent))
         # Track changes get their own animation: the tick is stopped while
@@ -801,6 +802,7 @@ class MiniPlayer(QWidget):
             self._refresh_texts()
             self._fade.stop()
             self._fade_t, self._art_prev = 1.0, None
+            self._art_scaled = {}
             self._art_img = None
             self._art_hs = None
             self._render_art()
@@ -865,6 +867,7 @@ class MiniPlayer(QWidget):
             data: Encoded image bytes, or None.
         """
         self._art_prev = self._art_img
+        self._art_scaled = {}
         self._fade_from = (QColor(self.bg), QColor(self._accent))
         img = QImage.fromData(data) if data else QImage()
         if img.isNull():
@@ -935,8 +938,7 @@ class MiniPlayer(QWidget):
         painter.end()
         self.art.setPixmap(rounded)
 
-    @staticmethod
-    def _draw_art(painter: QPainter, img: QImage | None, size: int, dpr: float):
+    def _draw_art(self, painter: QPainter, img: QImage | None, size: int, dpr: float):
         """Paint one cover, or the empty placeholder, over the art square.
 
         Args:
@@ -948,12 +950,28 @@ class MiniPlayer(QWidget):
         if img is None:
             painter.fillRect(QRectF(0, 0, size, size), QColor(255, 255, 255, 20))
             return
-        px = round(size * dpr)
-        pm = QPixmap.fromImage(img).scaled(
-            px, px, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
-        )
-        pm.setDevicePixelRatio(dpr)
-        painter.drawPixmap(0, 0, pm)
+        painter.drawPixmap(0, 0, self._scaled_art(img, round(size * dpr), dpr))
+
+    def _scaled_art(self, img: QImage, px: int, dpr: float) -> QPixmap:
+        """Scale a cover to the art square, once per track change.
+
+        The fade redraws both covers on every frame; scaling them from full
+        size each time was most of its cost.
+
+        Args:
+            img: Album art.
+            px: Side of the square, in device pixels.
+            dpr: Device pixels per logical pixel.
+        """
+        key = (img.cacheKey(), px)
+        pm = self._art_scaled.get(key)
+        if pm is None:
+            pm = QPixmap.fromImage(img).scaled(
+                px, px, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+            )
+            pm.setDevicePixelRatio(dpr)
+            self._art_scaled[key] = pm
+        return pm
 
     def _current_pos(self) -> float:
         """Estimate the playback position now, between 1-second polls."""
