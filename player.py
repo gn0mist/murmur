@@ -177,10 +177,10 @@ class MiniPlayer(QWidget):
         crow.setContentsMargins(0, 0, 0, 0)
         crow.setSpacing(4)
         crow.addStretch(1)
-        for b in self._control_buttons(34, 26, 10):
+        for b in self._control_buttons(34, 26, 13):
             crow.addWidget(b)
         crow.addSpacing(8)
-        speaker = SpeakerIcon(9, QColor(255, 255, 255, 170))
+        speaker = SpeakerIcon(12, QColor(255, 255, 255, 170))
         self.vol_slider = QSlider(Qt.Horizontal)
         self.vol_slider.setRange(0, 100)
         self.vol_slider.setFixedWidth(68)
@@ -209,7 +209,7 @@ class MiniPlayer(QWidget):
         crow2.setContentsMargins(4, 4, 4, 4)
         crow2.setSpacing(4)
         crow2.addStretch(1)
-        for b in self._control_buttons(26, 26, 9):
+        for b in self._control_buttons(26, 26, 12):
             crow2.addWidget(b)
         crow2.addStretch(1)
 
