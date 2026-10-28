@@ -29,6 +29,7 @@ from PySide6.QtWidgets import QApplication
 
 from player import MiniPlayer
 from settings import APP_NAME, ICON_PATH, _migrate_legacy_files
+from widgets import ui_font
 
 
 # ── Entry point ──────────────────────
@@ -37,6 +38,7 @@ def main():
     _migrate_legacy_files()
     app = QApplication(sys.argv)
     app.setApplicationName(APP_NAME)
+    app.setFont(ui_font(9))  # menus and tooltips
     app.setWindowIcon(QIcon(str(ICON_PATH)))
     w = MiniPlayer()
     w.show()

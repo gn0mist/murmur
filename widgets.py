@@ -23,6 +23,27 @@ from PySide6.QtWidgets import QWidget, QAbstractButton
 from settings import DEFAULT_BG
 
 
+# ── Type ─────────────────────────────
+def ui_font(pt: float, semibold: bool = False) -> QFont:
+    """Segoe UI Variable, or Segoe UI where it isn't installed.
+
+    Qt lists each weight of the variable font as its own family, and
+    weight 600 on the plain family snaps to Bold, so semibold is chosen
+    by family name.
+
+    Args:
+        pt: Point size.
+        semibold: Use the semibold weight.
+    """
+    name = "Segoe UI Variable Text Semibold" if semibold else "Segoe UI Variable Text"
+    f = QFont()
+    f.setFamilies([name, "Segoe UI"])
+    f.setPointSizeF(pt)
+    if semibold:
+        f.setWeight(QFont.DemiBold)  # picks Segoe UI Semibold in the fallback
+    return f
+
+
 # ── Widgets ──────────────────────────
 def _mix(c1: QColor, c2: QColor, m: float) -> QColor:
     """Blend two colors.
@@ -344,7 +365,7 @@ class LyricsStrip(QWidget):
         self.status = ""
         self._notice = ""
         self._notice_id = 0
-        self._font = QFont("Segoe UI", 11, QFont.DemiBold)
+        self._font = ui_font(11, semibold=True)
         self._fm = QFontMetricsF(self._font)
         self._idx = -1
         self._words = []  # (text, x, width, t_start, t_end)
@@ -407,7 +428,7 @@ class LyricsStrip(QWidget):
         """
         p = QPainter(self)
         p.setRenderHint(QPainter.TextAntialiasing)
-        p.setFont(QFont("Segoe UI", 8))
+        p.setFont(ui_font(8))
         p.setPen(QColor(255, 255, 255, alpha))
         opt = QTextOption(Qt.AlignCenter)
         opt.setWrapMode(QTextOption.WordWrap)

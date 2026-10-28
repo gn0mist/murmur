@@ -17,7 +17,6 @@ from PySide6.QtGui import (
     QPaintEvent,
     QPixmap,
     QImage,
-    QFont,
     QLinearGradient,
     QPen,
     QBrush,
@@ -50,7 +49,14 @@ from settings import (
     LYRICS_ERROR_TEXT,
     NANO_SIZE,
 )
-from widgets import IconButton, LyricsButton, LyricsStrip, ProgressBar, SpeakerIcon
+from widgets import (
+    IconButton,
+    LyricsButton,
+    LyricsStrip,
+    ProgressBar,
+    SpeakerIcon,
+    ui_font,
+)
 
 
 # ── Mini player ──────────────────────
@@ -115,10 +121,10 @@ class MiniPlayer(QWidget):
 
         self.title = QLabel("Nothing playing")
         self.title.setStyleSheet("color: white;")
-        self.title.setFont(QFont("Segoe UI", 11, QFont.Bold))
+        self.title.setFont(ui_font(11, semibold=True))
         self.artist = QLabel("")
         self.artist.setStyleSheet("color: rgba(255,255,255,170);")
-        self.artist.setFont(QFont("Segoe UI", 9))
+        self.artist.setFont(ui_font(9))
 
         self.bar = ProgressBar()
         self.bar.seek.connect(self.on_seek)
@@ -126,7 +132,7 @@ class MiniPlayer(QWidget):
         self.t_right = QLabel("0:00")
         for l in (self.t_left, self.t_right):
             l.setStyleSheet("color: rgba(255,255,255,140);")
-            l.setFont(QFont("Segoe UI", 8))
+            l.setFont(ui_font(8))
         time_row = QHBoxLayout()
         time_row.setSpacing(8)
         time_row.addWidget(self.t_left)
