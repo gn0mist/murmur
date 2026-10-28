@@ -28,7 +28,6 @@ from PySide6.QtWidgets import (
     QApplication,
     QWidget,
     QLabel,
-    QPushButton,
     QHBoxLayout,
     QVBoxLayout,
     QMenu,
@@ -51,7 +50,7 @@ from settings import (
     LYRICS_ERROR_TEXT,
     NANO_SIZE,
 )
-from widgets import LyricsButton, LyricsStrip, ProgressBar
+from widgets import IconButton, LyricsButton, LyricsStrip, ProgressBar, SpeakerIcon
 
 
 # ── Mini player ──────────────────────
@@ -148,12 +147,10 @@ class MiniPlayer(QWidget):
         crow.setContentsMargins(0, 0, 0, 0)
         crow.setSpacing(4)
         crow.addStretch(1)
-        for b in self._control_buttons(34, 26, 11):
+        for b in self._control_buttons(34, 26, 10):
             crow.addWidget(b)
         crow.addSpacing(8)
-        speaker = QLabel("🔊")
-        speaker.setFont(QFont("Segoe UI Symbol", 10))
-        speaker.setStyleSheet("color: rgba(255,255,255,170);")
+        speaker = SpeakerIcon(9, QColor(255, 255, 255, 170))
         self.vol_slider = QSlider(Qt.Horizontal)
         self.vol_slider.setRange(0, 100)
         self.vol_slider.setFixedWidth(68)
@@ -185,7 +182,7 @@ class MiniPlayer(QWidget):
         crow2.setContentsMargins(4, 3, 4, 3)
         crow2.setSpacing(2)
         crow2.addStretch(1)
-        for b in self._control_buttons(26, 26, 10):
+        for b in self._control_buttons(26, 26, 9):
             crow2.addWidget(b)
         crow2.addStretch(1)
 
@@ -217,60 +214,54 @@ class MiniPlayer(QWidget):
         self.root.addLayout(top, 1)
         self.root.addWidget(self.strip)
 
-        self.close_btn = QPushButton("✕", self)
-        self.close_btn.setFixedSize(18, 18)
-        self.close_btn.setCursor(Qt.PointingHandCursor)
-        self.close_btn.setFont(QFont("Segoe UI Symbol", 8))
-        self.close_btn.setStyleSheet(
-            "QPushButton { color: rgba(255,255,255,170); background: rgba(0,0,0,70);"
-            " border: none; border-radius: 9px; }"
-            "QPushButton:hover { color: white; background: rgba(220,60,60,200); }"
+        self.close_btn = IconButton(
+            "close",
+            18,
+            18,
+            7,
+            color=QColor(255, 255, 255, 170),
+            hover_color=QColor(255, 255, 255),
+            bg=QColor(0, 0, 0, 70),
+            hover_bg=QColor(220, 60, 60, 200),
         )
+        self.close_btn.setParent(self)
         self.close_btn.clicked.connect(self.on_quit)
         self.close_btn.hide()
         self.close_btn.raise_()
 
     def _control_buttons(
-        self, w: int, h: int, pt: int
-    ) -> tuple[QPushButton, QPushButton, QPushButton]:
+        self, w: int, h: int, size: float
+    ) -> tuple[IconButton, IconButton, IconButton]:
         """Make the back / play / next buttons.
 
         Args:
             w: Button width.
             h: Button height.
-            pt: Symbol font size.
+            size: Icon height in pixels.
 
         Returns:
-            (prev, play, next). Play is also remembered so its symbol can
+            (prev, play, next). Play is also remembered so its icon can
             follow the playback state.
         """
-        prev = self._btn("⏮", w, h, pt, lambda: self.backend.command("prev"))
-        play = self._btn("▶", w, h, pt, lambda: self.backend.command("toggle"))
-        nxt = self._btn("⏭", w, h, pt, lambda: self.backend.command("next"))
+        prev = self._btn("prev", w, h, size, lambda: self.backend.command("prev"))
+        play = self._btn("play", w, h, size, lambda: self.backend.command("toggle"))
+        nxt = self._btn("next", w, h, size, lambda: self.backend.command("next"))
         self.play_btns.append(play)
         return prev, play, nxt
 
     def _btn(
-        self, text: str, w: int, h: int, pt: int, slot: Callable[[], None]
-    ) -> QPushButton:
-        """Make one round, transparent symbol button.
+        self, kind: str, w: int, h: int, size: float, slot: Callable[[], None]
+    ) -> IconButton:
+        """Make one round, transparent icon button.
 
         Args:
-            text: Symbol to show.
+            kind: Icon to draw ('prev', 'play', or 'next').
             w: Button width.
             h: Button height.
-            pt: Symbol font size.
+            size: Icon height in pixels.
             slot: Called on click.
         """
-        b = QPushButton(text)
-        b.setFixedSize(w, h)
-        b.setCursor(Qt.PointingHandCursor)
-        b.setFont(QFont("Segoe UI Symbol", pt))
-        b.setStyleSheet(
-            "QPushButton { color: white; background: transparent; border: none;"
-            f" border-radius: {h // 2}px; }}"
-            "QPushButton:hover { background: rgba(255,255,255,40); }"
-        )
+        b = IconButton(kind, w, h, size)
         b.clicked.connect(slot)
         return b
 
@@ -765,7 +756,7 @@ class MiniPlayer(QWidget):
             self._refresh_colors()
             self.bar.set_fraction(0)
             for b in self.play_btns:
-                b.setText("▶")
+                b.set_playing(False)
             self.strip.set_lines([], "")
             self._update_tick()
             return
@@ -785,7 +776,7 @@ class MiniPlayer(QWidget):
         self._raw_title, self._raw_artist = s["title"], s["artist"]
         self._refresh_texts()
         for b in self.play_btns:
-            b.setText("⏸" if s["playing"] else "▶")
+            b.set_playing(s["playing"])
 
         if s["art_changed"]:
             self._track_key = s["key"]

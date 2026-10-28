@@ -1,9 +1,9 @@
 # Gnomist Praxis 1 · widgets.py · MIT
-"""Custom-drawn widgets: progress bar, lyrics button, and lyrics strip."""
+"""Custom-drawn widgets: progress bar, icons, lyrics button, and lyrics strip."""
 
 import bisect
 
-from PySide6.QtCore import Qt, QEvent, Signal, QTimer, QRectF
+from PySide6.QtCore import Qt, QEvent, Signal, QTimer, QPointF, QRectF
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
@@ -16,6 +16,7 @@ from PySide6.QtGui import (
     QLinearGradient,
     QPen,
     QTextOption,
+    QTransform,
 )
 from PySide6.QtWidgets import QWidget, QAbstractButton
 
@@ -157,6 +158,162 @@ class LyricsButton(QAbstractButton):
         pen = QPen(color, 1.4)
         pen.setCapStyle(Qt.RoundCap)
         p.strokePath(cradle, pen)
+
+
+def _icon_shape(kind: str, c: QPointF, s: float) -> QPainterPath:
+    """Filled outline of a playback or speaker icon.
+
+    Args:
+        kind: 'play', 'pause', 'prev', 'next', or 'speaker'.
+        c: Center of the icon.
+        s: Icon height in pixels.
+    """
+    path = QPainterPath()
+    x, cy = c.x(), c.y()
+
+    def tri(x0: float, x1: float, h: float):
+        """Add a triangle with its base at x0 and its tip at x1.
+
+        Args:
+            x0: Base x.
+            x1: Tip x.
+            h: Height, centered on cy.
+        """
+        path.moveTo(x0, cy - h / 2)
+        path.lineTo(x1, cy)
+        path.lineTo(x0, cy + h / 2)
+        path.closeSubpath()
+
+    if kind == "play":
+        tri(x - 0.35 * s, x + 0.45 * s, s)  # nudged right to look centered
+    elif kind == "pause":
+        path.addRect(QRectF(x - 0.3 * s, cy - s / 2, 0.2 * s, s))
+        path.addRect(QRectF(x + 0.1 * s, cy - s / 2, 0.2 * s, s))
+    elif kind in ("next", "prev"):
+        h = 0.78 * s
+        tri(x - 0.5 * s, x - 0.07 * s, h)
+        tri(x - 0.07 * s, x + 0.36 * s, h)
+        path.addRect(QRectF(x + 0.36 * s, cy - h / 2, 0.14 * s, h))
+        if kind == "prev":
+            path = QTransform().translate(2 * x, 0).scale(-1, 1).map(path)
+    elif kind == "speaker":
+        path.addRect(QRectF(x - 0.55 * s, cy - 0.2 * s, 0.25 * s, 0.4 * s))
+        path.moveTo(x - 0.3 * s, cy - 0.2 * s)
+        path.lineTo(x + 0.05 * s, cy - 0.5 * s)
+        path.lineTo(x + 0.05 * s, cy + 0.5 * s)
+        path.lineTo(x - 0.3 * s, cy + 0.2 * s)
+        path.closeSubpath()
+    return path
+
+
+class IconButton(QAbstractButton):
+    """Round, transparent button with its icon drawn in code.
+
+    Font symbols differ in size and weight from glyph to glyph; drawing
+    them keeps the set even. Play and pause share one box, so the button
+    doesn't shift when it toggles.
+    """
+
+    def __init__(
+        self,
+        kind: str,
+        w: int,
+        h: int,
+        size: float,
+        color: QColor = QColor(255, 255, 255),
+        hover_color: QColor | None = None,
+        bg: QColor = QColor(0, 0, 0, 0),
+        hover_bg: QColor = QColor(255, 255, 255, 40),
+    ):
+        """Create the button.
+
+        Args:
+            kind: 'prev', 'play', 'next', or 'close'.
+            w: Button width.
+            h: Button height.
+            size: Icon height in pixels.
+            color: Icon color.
+            hover_color: Icon color on hover (defaults to color).
+            bg: Background color.
+            hover_bg: Background color on hover.
+        """
+        super().__init__()
+        self.kind = kind
+        self.playing = False
+        self._icon_size = size
+        self.color = color
+        self.hover_color = hover_color or color
+        self.bg = bg
+        self.hover_bg = hover_bg
+        self.setFixedSize(w, h)
+        self.setCursor(Qt.PointingHandCursor)
+        self.setAttribute(Qt.WA_Hover)  # repaint on enter and leave
+
+    def set_playing(self, playing: bool):
+        """Show pause while playing, play otherwise (play button only).
+
+        Args:
+            playing: Whether Spotify is playing.
+        """
+        if playing != self.playing:
+            self.playing = playing
+            self.update()
+
+    def paintEvent(self, _: QPaintEvent):
+        """Draw the round background and the icon."""
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        hover = self.underMouse()
+        bg = self.hover_bg if hover else self.bg
+        if bg.alpha():
+            r = self.height() / 2
+            p.setPen(Qt.NoPen)
+            p.setBrush(bg)
+            p.drawRoundedRect(QRectF(self.rect()), r, r)
+
+        color = self.hover_color if hover else self.color
+        c = QRectF(self.rect()).center()
+        s = self._icon_size
+        if self.kind == "close":
+            d = s / 2
+            pen = QPen(color, 1.2)
+            pen.setCapStyle(Qt.RoundCap)
+            p.setPen(pen)
+            p.drawLine(QPointF(c.x() - d, c.y() - d), QPointF(c.x() + d, c.y() + d))
+            p.drawLine(QPointF(c.x() - d, c.y() + d), QPointF(c.x() + d, c.y() - d))
+            return
+        kind = "pause" if self.kind == "play" and self.playing else self.kind
+        p.fillPath(_icon_shape(kind, c, s), color)
+
+
+class SpeakerIcon(QWidget):
+    """Speaker drawn beside the volume slider."""
+
+    def __init__(self, size: float, color: QColor):
+        """Create the icon.
+
+        Args:
+            size: Icon height in pixels.
+            color: Icon color.
+        """
+        super().__init__()
+        self._icon_size = size
+        self.color = color
+        self.setFixedSize(16, 16)
+
+    def paintEvent(self, _: QPaintEvent):
+        """Draw the speaker and two sound waves."""
+        p = QPainter(self)
+        p.setRenderHint(QPainter.Antialiasing)
+        s = self._icon_size
+        c = QRectF(self.rect()).center() - QPointF(0.05 * s, 0)  # waves included
+        p.fillPath(_icon_shape("speaker", c, s), self.color)
+        pen = QPen(self.color, 1.1)
+        pen.setCapStyle(Qt.RoundCap)
+        p.setPen(pen)
+        for r in (0.32 * s, 0.6 * s):
+            box = QRectF(c.x() + 0.05 * s - r, c.y() - r, 2 * r, 2 * r)
+            p.drawArc(box, -45 * 16, 90 * 16)
 
 
 class LyricsStrip(QWidget):
