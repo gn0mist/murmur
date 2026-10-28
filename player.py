@@ -128,7 +128,7 @@ class MiniPlayer(QWidget):
             l.setStyleSheet("color: rgba(255,255,255,140);")
             l.setFont(QFont("Segoe UI", 8))
         time_row = QHBoxLayout()
-        time_row.setSpacing(6)
+        time_row.setSpacing(8)
         time_row.addWidget(self.t_left)
         time_row.addWidget(self.bar, 1)
         time_row.addWidget(self.t_right)
@@ -161,7 +161,7 @@ class MiniPlayer(QWidget):
         crow.addStretch(1)
 
         right = QVBoxLayout()
-        right.setSpacing(1)
+        right.setSpacing(4)
         right.addWidget(self.title)
         right.addWidget(self.artist)
         right.addStretch(1)
@@ -179,8 +179,8 @@ class MiniPlayer(QWidget):
             "QWidget#cbar { background: rgba(0,0,0,165); border-radius: 10px; }"
         )
         crow2 = QHBoxLayout(self.cbar)
-        crow2.setContentsMargins(4, 3, 4, 3)
-        crow2.setSpacing(2)
+        crow2.setContentsMargins(4, 4, 4, 4)
+        crow2.setSpacing(4)
         crow2.addStretch(1)
         for b in self._control_buttons(26, 26, 9):
             crow2.addWidget(b)
@@ -194,7 +194,7 @@ class MiniPlayer(QWidget):
             "QWidget#vbox { background: rgba(0,0,0,165); border-radius: 10px; }"
         )
         vlay = QVBoxLayout(self.vbox)
-        vlay.setContentsMargins(3, 8, 3, 8)
+        vlay.setContentsMargins(4, 8, 4, 8)
         self.vol_slider_v = QSlider(Qt.Vertical)
         self.vol_slider_v.setRange(0, 100)
         self.vol_slider_v.setEnabled(False)
@@ -210,7 +210,7 @@ class MiniPlayer(QWidget):
         self.strip = LyricsStrip()
 
         self.root = QVBoxLayout(self)
-        self.root.setSpacing(2)
+        self.root.setSpacing(4)
         self.root.addLayout(top, 1)
         self.root.addWidget(self.strip)
 
@@ -268,7 +268,7 @@ class MiniPlayer(QWidget):
     def resizeEvent(self, _: QResizeEvent):
         """Keep the close button pinned to the top-right corner."""
         if hasattr(self, "close_btn"):
-            self.close_btn.move(self.width() - 24 - self.GLOW_PAD, 6 + self.GLOW_PAD)
+            self.close_btn.move(self.width() - 26 - self.GLOW_PAD, 8 + self.GLOW_PAD)
 
     # ── Applying settings ────────────
     def _apply_all(self):
@@ -287,11 +287,10 @@ class MiniPlayer(QWidget):
         self.right_w.setVisible(not nano)
         self.strip.setVisible(self.show_lyrics and not nano)
         g = self.GLOW_PAD
+        self.root.setContentsMargins(12 + g, 12 + g, 12 + g, 12 + g)
         if nano:
-            self.root.setContentsMargins(12 + g, 12 + g, 12 + g, 12 + g)
             self.setFixedSize(NANO_SIZE + 2 * g, NANO_SIZE + 2 * g)
         else:
-            self.root.setContentsMargins(12 + g, 12 + g, 14 + g, 8 + g)
             h = self.BASE_H + (self.LYRICS_H if self.show_lyrics else 0)
             self.setFixedSize(FULL_W + 2 * g, h + 2 * g)
         self._render_art()
@@ -617,7 +616,7 @@ class MiniPlayer(QWidget):
         """
         w = QWidget()
         lay = QHBoxLayout(w)
-        lay.setContentsMargins(14, 4, 14, 4)
+        lay.setContentsMargins(12, 4, 12, 4)
         name = QLabel(label)
         name.setFixedWidth(52)
         slider = QSlider(Qt.Horizontal)
