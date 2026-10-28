@@ -6,7 +6,17 @@ import time
 from concurrent.futures import Future
 from typing import Callable
 
-from PySide6.QtCore import Qt, QEvent, Signal, QTimer, QRectF, QPoint, QRect
+from PySide6.QtCore import (
+    Qt,
+    QEasingCurve,
+    QEvent,
+    QPoint,
+    QRect,
+    QRectF,
+    QTimer,
+    QVariantAnimation,
+    Signal,
+)
 from PySide6.QtGui import (
     QColor,
     QContextMenuEvent,
@@ -55,6 +65,7 @@ from widgets import (
     LyricsStrip,
     ProgressBar,
     SpeakerIcon,
+    _mix,
     ui_font,
 )
 
@@ -82,8 +93,21 @@ class MiniPlayer(QWidget):
         self.setAttribute(Qt.WA_TranslucentBackground)
 
         self.bg = QColor(DEFAULT_BG)
+        self._accent = QColor(255, 255, 255)
         self._art_hs = None  # (hue, saturation) of the current album art
         self._art_img = None
+        self._art_prev = None  # art fading out during a track change
+        self._fade_t = 1.0  # track-change fade progress, 0..1
+        self._fade_from = (QColor(self.bg), QColor(self._accent))
+        # Track changes get their own animation: the tick is stopped while
+        # paused and in nano mode.
+        self._fade = QVariantAnimation(self)
+        self._fade.setDuration(400)
+        self._fade.setStartValue(0.0)
+        self._fade.setEndValue(1.0)
+        self._fade.setEasingCurve(QEasingCurve.InOutQuad)
+        self._fade.valueChanged.connect(self.on_fade_step)
+        self._fade.finished.connect(self.on_fade_done)
         self._vol_cur = None  # last known Spotify volume, 0-100
         self._drag_offset = None
         self._state = {"active": False}
@@ -319,18 +343,18 @@ class MiniPlayer(QWidget):
         """Background alpha (0-255) from the opacity setting."""
         return int(255 * max(0, min(100, self.cfg["opacity"])) / 100)
 
+    def _art_colors(self) -> tuple[QColor, QColor]:
+        """Background and accent for the current album art (or the defaults)."""
+        if self._art_hs:
+            h, s = self._art_hs
+            bg = QColor.fromHsv(h, min(s, 190), 58)
+            return bg, QColor.fromHsv(h, min(s, 150), 255)
+        return QColor(DEFAULT_BG), QColor(255, 255, 255)
+
     def _refresh_colors(self):
         """Recolor everything from the album art (or the defaults)."""
-        hs = self._art_hs
-        if hs:
-            h, s = hs
-            self.bg = QColor.fromHsv(h, min(s, 190), 58)
-            accent = QColor.fromHsv(h, min(s, 150), 255)
-        else:
-            self.bg = QColor(DEFAULT_BG)
-            accent = QColor(255, 255, 255)
-        self.bar.color = accent
-        self.bar.update()
+        self.bg, self._accent = self._art_colors()
+        accent = self._accent
         self.vol_slider.setStyleSheet(
             "QSlider::groove:horizontal { height: 4px; border-radius: 2px;"
             " background: rgba(255,255,255,50); }"
@@ -361,6 +385,17 @@ class MiniPlayer(QWidget):
             w.setStyleSheet(
                 f"QWidget#{w.objectName()} {{ {tint} border-radius: 10px; }}"
             )
+        self._paint_colors()
+
+    def _paint_colors(self):
+        """Pass the current colors to everything drawn in code.
+
+        Cheap enough to run on every frame of a fade; the stylesheets in
+        _refresh_colors are not.
+        """
+        accent = self._accent
+        self.bar.color = accent
+        self.bar.update()
         self.strip.accent = accent
         self.lyrics_btn.accent = accent
         self.lyrics_btn.update()
@@ -756,6 +791,8 @@ class MiniPlayer(QWidget):
             self._playing = False
             self._raw_title, self._raw_artist = "Nothing playing", ""
             self._refresh_texts()
+            self._fade.stop()
+            self._fade_t, self._art_prev = 1.0, None
             self._art_img = None
             self._art_hs = None
             self._render_art()
@@ -814,11 +851,13 @@ class MiniPlayer(QWidget):
             self.strip.set_lines([], "No synced lyrics found for this song")
 
     def _set_art(self, data: bytes | None):
-        """Load new album art and take its average hue for the colors.
+        """Load new album art, take its average hue, and fade to both.
 
         Args:
             data: Encoded image bytes, or None.
         """
+        self._art_prev = self._art_img
+        self._fade_from = (QColor(self.bg), QColor(self._accent))
         img = QImage.fromData(data) if data else QImage()
         if img.isNull():
             self._art_img = None
@@ -830,23 +869,44 @@ class MiniPlayer(QWidget):
             ).pixelColor(0, 0)
             h, s, v, _ = avg.getHsv()
             self._art_hs = (max(h, 0), s)
+        self._fade.stop()
+        self._fade.start()
+
+    def on_fade_step(self, t: float):
+        """Draw one frame of the track-change fade.
+
+        Args:
+            t: Fade progress, 0..1 (eased).
+        """
+        self._fade_t = t
+        to_bg, to_accent = self._art_colors()
+        from_bg, from_accent = self._fade_from
+        self.bg = _mix(from_bg, to_bg, t)
+        self._accent = _mix(from_accent, to_accent, t)
+        self._render_art()
+        self._paint_colors()
+
+    def on_fade_done(self):
+        """Finish the fade: drop the old art and settle the stylesheets."""
+        self._fade_t, self._art_prev = 1.0, None
         self._render_art()
         self._refresh_colors()
 
     def _render_art(self):
-        """Draw the album art with rounded corners, or a placeholder."""
+        """Draw the album art with rounded corners, or a placeholder.
+
+        During a track change the old art sits underneath, fading out.
+        """
         size = self.art.width()
         img = self._art_img
-        if img is None or img.isNull():
+        fading = self._fade_t < 1.0
+        if img is None and not fading:
             self.art.clear()
             self.art.setStyleSheet(
                 "background: rgba(255,255,255,20); border-radius: 10px;"
             )
             return
         self.art.setStyleSheet("")
-        pm = QPixmap.fromImage(img).scaled(
-            size, size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
-        )
         rounded = QPixmap(size, size)
         rounded.fill(Qt.transparent)
         painter = QPainter(rounded)
@@ -855,9 +915,31 @@ class MiniPlayer(QWidget):
         radius = 12 if size > 100 else 10
         clip.addRoundedRect(QRectF(0, 0, size, size), radius, radius)
         painter.setClipPath(clip)
-        painter.drawPixmap(0, 0, pm)
+        if fading:
+            # a new cover hides the old one; the see-through placeholder doesn't
+            painter.setOpacity(1.0 if img is not None else 1.0 - self._fade_t)
+            self._draw_art(painter, self._art_prev, size)
+            painter.setOpacity(self._fade_t)
+        self._draw_art(painter, img, size)
         painter.end()
         self.art.setPixmap(rounded)
+
+    @staticmethod
+    def _draw_art(painter: QPainter, img: QImage | None, size: int):
+        """Paint one cover, or the empty placeholder, over the art square.
+
+        Args:
+            painter: Painter on the art pixmap, already clipped.
+            img: Album art, or None for the placeholder.
+            size: Side of the square.
+        """
+        if img is None:
+            painter.fillRect(QRectF(0, 0, size, size), QColor(255, 255, 255, 20))
+            return
+        pm = QPixmap.fromImage(img).scaled(
+            size, size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation
+        )
+        painter.drawPixmap(0, 0, pm)
 
     def _current_pos(self) -> float:
         """Estimate the playback position now, between 1-second polls."""
