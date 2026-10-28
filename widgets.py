@@ -13,14 +13,13 @@ from PySide6.QtGui import (
     QPaintEvent,
     QFont,
     QFontMetricsF,
+    QImage,
     QLinearGradient,
     QPen,
     QTextOption,
     QTransform,
 )
 from PySide6.QtWidgets import QWidget, QAbstractButton
-
-from settings import DEFAULT_BG
 
 
 # ── Type ─────────────────────────────
@@ -360,8 +359,6 @@ class LyricsStrip(QWidget):
         self.starts = []
         self.position = 0.0
         self.accent = QColor(255, 255, 255)
-        self.bg = QColor(DEFAULT_BG)
-        self.bg_alpha = 238
         self.status = ""
         self._notice = ""
         self._notice_id = 0
@@ -514,7 +511,15 @@ class LyricsStrip(QWidget):
 
         base = H / 2 + (self._fm.ascent() - self._fm.descent()) / 2
 
-        p = QPainter(self)
+        # draw on a layer so the edge fade can thin the text itself and
+        # leave the see-through panel behind it untouched
+        dpr = self.devicePixelRatioF()
+        layer = QImage(
+            round(W * dpr), round(H * dpr), QImage.Format_ARGB32_Premultiplied
+        )
+        layer.setDevicePixelRatio(dpr)
+        layer.fill(Qt.transparent)
+        p = QPainter(layer)
         p.setRenderHint(QPainter.Antialiasing)
         p.setRenderHint(QPainter.TextAntialiasing)
         p.setFont(self._font)
@@ -557,16 +562,15 @@ class LyricsStrip(QWidget):
 
         # soft fade at both edges so scrolling text slides in and out
         p.setOpacity(1.0)
-        edge = 22.0
-        c0 = QColor(self.bg)
-        c0.setAlpha(self.bg_alpha)
-        c1 = QColor(self.bg)
-        c1.setAlpha(0)
-        gl = QLinearGradient(0, 0, edge, 0)
-        gl.setColorAt(0, c0)
-        gl.setColorAt(1, c1)
-        p.fillRect(QRectF(0, 0, edge, H), gl)
-        gr = QLinearGradient(W - edge, 0, W, 0)
-        gr.setColorAt(0, c1)
-        gr.setColorAt(1, c0)
-        p.fillRect(QRectF(W - edge, 0, edge, H), gr)
+        p.setCompositionMode(QPainter.CompositionMode_DestinationIn)
+        edge = 22.0 / W
+        mask = QLinearGradient(0, 0, W, 0)
+        mask.setColorAt(0, QColor(0, 0, 0, 0))
+        mask.setColorAt(edge, QColor(0, 0, 0))
+        mask.setColorAt(1 - edge, QColor(0, 0, 0))
+        mask.setColorAt(1, QColor(0, 0, 0, 0))
+        p.fillRect(QRectF(0, 0, W, H), mask)
+        p.end()
+
+        p = QPainter(self)
+        p.drawImage(0, 0, layer)

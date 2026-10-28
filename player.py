@@ -399,8 +399,6 @@ class MiniPlayer(QWidget):
         self.strip.accent = accent
         self.lyrics_btn.accent = accent
         self.lyrics_btn.update()
-        self.strip.bg = QColor(self.bg)
-        self.strip.bg_alpha = self._bg_alpha()
         self.strip.update()
         self.update()
 
