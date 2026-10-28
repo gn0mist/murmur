@@ -6,7 +6,8 @@ A small always-on-top miniplayer for Spotify on Windows 11, with synced karaoke-
 
 It reads what Spotify is playing from the Windows media session, so there's no Spotify login or API key.
 
-**Status:** public beta (v0.2.0). It works day to day, but expect a few rough edges.
+**Status:** public beta. It works day to day, but expect a few rough edges. The
+[Releases page](https://github.com/gn0mist/murmur/releases) has the latest version.
 
 ## Download
 
